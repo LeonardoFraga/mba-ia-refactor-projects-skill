@@ -1,5 +1,42 @@
 # Entregáveis
 
+## Análise Manual
+
+### Code Smells
+
+- CRITICAL: `app.py` contém `SECRET_KEY` hardcoded e `DEBUG = True`. Isso expõe credenciais e configurações de ambiente sensíveis no código-fonte e torna a aplicação insegura em produção.
+- CRITICAL: `models.py` constrói queries SQL por concatenação de strings em `get_produto_por_id`, `criar_produto`, `login_usuario`, `criar_usuario`, `get_usuario_por_id` e vários outros métodos. Essa prática abre o caminho para SQL injection e garante que dados de usuários não são tratados de forma segura.
+- MEDIUM: `controllers.py` mistura validação de payload, lógica de negócio e fluxo HTTP em funções como `criar_produto`, `criar_pedido` e `login`. Isso dificulta testes isolados e impede a criação de uma camada de serviço clara.
+- MEDIUM: Há duplicação de transformação e serialização de resultados em `models.py` e `controllers.py`. Por exemplo, `get_todos_produtos` e `get_todos_usuarios` repetem a mesma montagem de dicionários, e `get_pedidos_usuario` repete consultas aninhadas para buscar nomes de produtos.
+- LOW: O endpoint de saúde `health_check` expõe informações internas como `secret_key`, `debug` e `db_path`. Mesmo se a aplicação não estiver em produção, esse tipo de exposição prejudica a segurança do serviço.
+
+### E-Commerce
+
+- CRITICAL: `src/utils.js` guarda segredos como `paymentGatewayKey`, `dbUser` e `dbPass` em código-fonte. Além disso, `badCrypto` implementa uma função de hash fraca e customizada, o que torna o sistema vulnerável e difícil de manter.
+- HIGH: `AppManager.setupRoutes` concentra todo o fluxo de checkout dentro de um único endpoint `/api/checkout`. A rota faz validação, busca de curso, criação de usuário, processamento de pagamento, inserção de matrícula e registro de auditoria, violando separação de responsabilidades.
+- MEDIUM: O banco de dados é inicializado em memória no construtor de `AppManager` e populado na inicialização. Isso significa que não há persistência entre reinícios e que a arquitetura depende do estado interno do objeto para funcionar.
+- MEDIUM: O relatório financeiro em `/api/admin/financial-report` faz múltiplas consultas aninhadas por curso, matrícula e pagamento, usando callbacks redundantes. Esse padrão gera complexidade, dificulta o tratamento de erros e torna o código frágil.
+- LOW: O endpoint `DELETE /api/users/:id` remove o usuário mas mantém registros de matrículas e pagamentos no banco. A resposta em texto plano também não segue um padrão de API consistente.
+
+### Task Manager Api
+
+- HIGH: `app.py` define `SQLALCHEMY_DATABASE_URI` e `SECRET_KEY` diretamente no código. Isso impede a configuração por ambiente e força o deploy a usar valores fixos dentro do repositório.
+- HIGH: `User.to_dict()` retorna o campo `password` em todas as respostas de usuário. Mesmo que seja um hash MD5, esse dado não deveria ser exposto pela API.
+- MEDIUM: As rotas de tarefa e relatório em `routes/task_routes.py` e `routes/report_routes.py` implementam lógica de negócio e regras de domínio repetidas, como cálculo de overdue e construção de objetos de resposta. Isso reduz a clareza e cria código difícil de reutilizar.
+- MEDIUM: A busca de tarefas em `search_tasks` aplica filtros inline e converte parâmetros como `priority` e `user_id` manualmente. Isso aumenta a probabilidade de erros de parsing e torna a camada de rota mais pesada do que o necessário.
+- LOW: O modelo `Task` armazena `tags` como string separada por vírgulas e todas as respostas são serializadas manualmente em `to_dict()`. A ausência de abstração para esse comportamento compromete a legibilidade e a evolução do código.
+
+## Construção da Skill
+
+- Decisões de design: a skill foi estruturada em três fases sequenciais (Análise, Auditoria e Refatoração), com arquivos de referência separados para análise de projeto, catálogo de anti-patterns, template de relatório, guidelines MVC e playbook de refatoração. Isso permite identificar o contexto do projeto primeiro, gerar um relatório confiável e só então modificar o código.
+- Anti-patterns incluídos: God Class / God Method, Fat Controller, Hardcoded Secrets, SQL Injection / raw SQL concatenado, Duplicate Data Mapping, Overloaded Route Handler, In-memory DB initialization, Insecure serialization de dados sensíveis e uso de APIs obsoletas. Foram escolhidos por seu impacto direto em segurança, manutenção, testes e separação de responsabilidades.
+- Como garantimos que a skill é agnóstica de tecnologia: a skill opera sobre princípios universais de arquitetura e identificação de anti-patterns, enquanto mantém implementações de refatoração específicas para cada stack. O catálogo de regras detecta sinais de Python/Flask e Node/Express e referencia exemplos adaptáveis, e o `ExtensionGuide.md` documenta como estender para Java/Spring Boot, C#/.NET e outras linguagens.
+- Desafios encontrados: equilibrar detecção genérica de code smells com a necessidade de exemplos concretos por framework e lidar com projetos que já têm alguma separação de camadas e outros totalmente monolíticos.
+
+- Nota: A skill foi estruturada como "agnóstica de princípios, específica de implementação". Isso significa que conceitos como God Class, Fat Controller e separação MVC são universais, mas exemplos de refatoração requerem conhecimento de framework específico. A skill suporta completamente Python/Flask, Node/Express, Java/Spring Boot e C#/.NET com detecção automática e exemplos de refatoração. Para outras linguagens (Go, Rust, etc.), os princípios e detecção funcionam, mas a refatoração requer adaptação manual. Veja `ExtensionGuide.md` na skill para detalhes sobre como estender para novas linguagens.
+
+----
+
 A) Seção "Análise Manual": lista dos problemas identificados, classificação por severidade e justificativa de por que cada problema é relevante.
 
 B) Seção "Construção da Skill": decisões de design, quais anti-patterns incluiu e por quê, como garantiu que a skill é agnóstica de tecnologia e desafios encontrados.
@@ -8,6 +45,7 @@ C) Seção "Resultados": resumo dos relatórios de auditoria, comparação antes
 
 D) Seção "Como Executar": pré-requisitos, comandos para executar a skill em cada projeto e como validar que a refatoração funcionou.
 
+---
 
 # Criação de Skills — Refatoração Arquitetural Automatizada
 
